@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
+
 const CaptainSignIn = () => {
   const navigator = useNavigate();
     const [email, setEmail] = useState("");   
@@ -12,7 +13,7 @@ const CaptainSignIn = () => {
       e.preventDefault();
       setEmail("");
       setPassword("");
-      const res = await fetch('http://localhost:4000/captains/login', {
+      const res = await fetch(`${import.meta.env.VITE_BASE_URL}/captains/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -24,8 +25,9 @@ const CaptainSignIn = () => {
       });
       const data = await res.json();
       if(data.token){
-        console.log("Here");
-        navigator('/home');
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('captain', JSON.stringify(data.captain));
+        navigator('/captain-home');
       }
       else{
         alert("Invalid email or password");

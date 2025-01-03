@@ -2,7 +2,11 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useContext } from 'react'
+import { UserContext } from '../contexts/UserContext'
+
 const UserSignUp = () => {
+    const { user, updateUser } = useContext(UserContext)
     const navigator = useNavigate();
     const [email, setEmail] = useState("");   
     const [password, setPassword] = useState("");
@@ -17,7 +21,7 @@ const UserSignUp = () => {
       setLastName("");
       console.log(e.target.firstName.value);
       
-      const res = await fetch('http://localhost:4000/users/register', {
+      const res = await fetch(`${import.meta.env.VITE_BASE_URL}/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -34,7 +38,9 @@ const UserSignUp = () => {
       const data = await res.json();
       console.log(data);
       if(data.token){
-        console.log("Here");
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        updateUser(data.user.fullname.firstname, data.user.fullname.lastname, data.user.email);
         navigator('/home');
       }
       else{

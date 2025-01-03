@@ -33,7 +33,7 @@ const CaptainSignUp = () => {
     
 
 
-    const res = await fetch('http://localhost:4000/captains/register', {
+    const res = await fetch(`${import.meta.env.VITE_BASE_URL}/captains/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -56,7 +56,8 @@ const CaptainSignUp = () => {
     const data = await res.json();
     console.log(data);
     if (data.token) {
-      navigator('/home');
+      localStorage.setItem('token', data.token);
+      navigator('/captain-home');
     }
     else {
       alert(data.errors[0].msg);
