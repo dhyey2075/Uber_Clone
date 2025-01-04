@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useContext } from 'react'
 import { UserContext } from '../contexts/UserContext'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { BlinkBlur } from 'react-loading-indicators';
 import { ThreeDot } from 'react-loading-indicators';
+import { SocketContext } from '../contexts/SocketContext';
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -28,14 +29,24 @@ const Home = () => {
   const autoRef = useRef(null)
   const motoRef = useRef(null)
 
+  const  socket  = useContext(SocketContext)
+
 
   useEffect(() => {
+    
     const userString = localStorage.getItem('user');
     const user = JSON.parse(userString);
     setUser(user);
   }, [])
 
-  const debounce = (func, delay) => {
+  useEffect(() => {
+    if (socket) {
+      console.log('Socket ID:', socket.id);
+      socket.emit('addSocketIdToUserDb', { userId: user._id });
+    }
+  }, [socket]);
+
+  const debounce = (func, delay) => { 
     let timeoutId;
     return (...args) => {
       if (timeoutId) clearTimeout(timeoutId);
