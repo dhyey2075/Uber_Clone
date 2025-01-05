@@ -1,5 +1,6 @@
 const dotenv = require('dotenv');
 dotenv.config();
+const captainModel = require('../models/captain.model');
 
 module.exports.getAddressCoordinated = async (address) => {
     const res = await fetch(`
@@ -17,4 +18,21 @@ module.exports.getDistanceHelper = async (slat, slong, elat, elong) => {
         method: "POST"
     })      
     return res;
+}
+
+module.exports.getCaptainsInTheRadius = async (lat, lng, radius) => {
+
+    // radius in km
+
+
+    const captains = await captainModel.find({
+        status: 'active',
+        location: {
+            $geoWithin: {
+                $centerSphere: [ [ lat, lng ], radius / 6371 ]
+            }
+        }
+    });
+
+    return captains;
 }

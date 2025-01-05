@@ -23,6 +23,7 @@ async function getFare(pickup, destination) {
     const distanceTimeres = await fetch(`${process.env.API_URL}/maps/getDistance?slat=${pickupcoords.lat}&slong=${pickupcoords.lng}&elat=${destcoords.lat}&elong=${destcoords.lng}`)
     const distanceTime = await distanceTimeres.json();
 
+
     console.log(distanceTime);
     
 
@@ -53,6 +54,10 @@ async function getFare(pickup, destination) {
     };
     fare.time = distanceTime.readable_duration;
     fare.distance = distanceTime.readable_distance;
+    fare.location = {
+        lat: pickupcoords.lat,
+        lng: pickupcoords.lng
+    }
     console.log(fare);
     
     return fare;
