@@ -14,9 +14,8 @@ connectDB();
 
 
 app.use(cors({
-  origin: '*', // Replace with your frontend origin
+  origin: (origin, cb) => cb(null, true),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'], // Adjust as needed
   credentials: true,
 }));
 
