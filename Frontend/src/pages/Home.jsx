@@ -52,8 +52,10 @@ const Home = () => {
         socket.emit('addSocketIdToUserDb', { userId: user._id, type: "user" });
       }
 
-      socket.on('rideAcceptedToUser', (data) => {
+      socket.on('rideAcceptedToUser', async(data) => {
         setCaptainRide(data);
+        
+        
       })
 
       socket.on('otp-verify-response', (data) => {
@@ -64,11 +66,35 @@ const Home = () => {
           alert('Invalid OTP')
         }
       })
+
+      socket.on('end-ride-to-user', (data) => {
+        console.log('Ride ended:', data);
+        setRideStarted(false);
+        setRideAccepted(false);
+        setCnfRide(false);
+        setIsFindRide(false);
+        setIsConfirmRide(false);
+        setCaptainRide(null);
+        setOTP(null);
+        setRideData(null);
+        setFare(null);
+        setVehicleType('');
+        setExpectedTime(null);
+        alert('Your ride has ended. Thank you for using our service!');
+      });
     }
   }, [socket, user]);
 
   useEffect(() => {
-    console.log(captainRide);
+    console.log("captainRide", captainRide);
+    if(rideData){
+      rideData.captains.forEach(captain => {
+        if(captain.socketId !== captainRide.captain.socketId){
+          console.log("cancel request sent to", captain.socketId)
+          socket.emit('rideRequestCancel', { userSocketId: user.socketId, ride: rideData.ride, captain: captain });
+        }
+      });
+    }
     setRideAccepted(true);
   }, [captainRide])
 
@@ -308,13 +334,13 @@ const Home = () => {
                     alt="vehicle type image"
                   />
                 </div>}
-                <div className='bg-gray-200 p-2 border-2 w-[90%] border-black rounded-md m-2'>
+                {isConfirmRide && <div className='bg-gray-200 p-2 border-2 w-[90%] border-black rounded-md m-2'>
                   <h3 className='text-lg font-semibold' >From: {rideData && rideData?.ride?.pickup?.slice(0, 34)}</h3>
                   <h3 className='text-lg font-semibold' >To: {rideData && rideData?.ride?.destination?.slice(0, 34)}</h3>
-                </div>
-                <div>
+                </div>}
+                {isConfirmRide && <div>
                   <h3 className={`text-2xl font-bold ${rideAccepted ? 'm-2' : 'mt-32'}`} >Fare: ₹{fare && fare[vehicleType]}</h3>
-                </div>
+                </div>}
                 <button ref={acceptRideRef} className='absolute top-[-10%]' onClick={() => { setRideAccepted(!rideAccepted); }} >accept ride</button>
                 {/* <button  className='absolute top-[-10%] left-0' onClick={() => { setIsFindRide(!isFindRide); }} >Is find Rode</button>
                 <button  className='absolute top-[-10%] left-20' onClick={() => { setIsConfirmRide(!isConfirmRide); }} >Is confirm Ride</button>

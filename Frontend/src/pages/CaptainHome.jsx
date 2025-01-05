@@ -34,6 +34,11 @@ const CaptainHome = () => {
           setOtp('')
         }
       })
+
+      socket.on('rideRequestCancelToCaptain', (data) => {
+        console.log("rides after cancel",data);
+        setRides(rides.filter(ride => ride._id !== data.ride._id))
+      })
     }
   }, [socket, captain])
 
@@ -204,6 +209,13 @@ const CaptainHome = () => {
       {isAccepted && <div className='h-[50%] bg-white p-3'>
         <h1 className='text-xl my-2 font-semibold capitalize'>Passenger Name: {acceptedRide && acceptedRide?.user?.fullname?.firstname}</h1>
         <h1 className='text-xl my-2 font-semibold'>Pickup Point - {acceptedRide && acceptedRide?.ride?.pickup}</h1>
+        {rideStarted && <button className='bg-red-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md' onClick={() => {
+          console.log('Ending Ride...');
+          socket.emit('end-ride', { rideId: acceptedRide.ride._id, captainId: captain._id, userSocketId: acceptedRide.user.socketId });
+          setRideStarted(false);
+          setIsAccepted(false);
+          setAcceptedRide(null);
+        }}>End Ride</button>}
         {!rideStarted && <h1 className='text-lg font-semibold'>Enter OTP</h1>}
         {!rideStarted && <div className='flex justify-center items-center'>
           <input type="text"
