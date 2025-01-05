@@ -78,6 +78,20 @@ function initializeSocket(server) {
         }
     })
 
+    socket.on('rideRequestCancel', async(data) => {
+        const { ride, captain } = data;
+        console.log("Cancel request to", captain.socketId);
+        io.to(captain.socketId).emit('rideRequestCancelToCaptain', { ride });
+    })
+
+    socket.on('end-ride', async(data) => {
+        const { rideId, userSocketId, captainId } = data;
+        const updatedRide = await rideModel.findByIdAndUpdate(rideId, { status: 'completed' });
+        const updatedCaptain = await captainModel.findByIdAndUpdate(captainId, { status: 'active' });
+        console.log('End Ride', userSocketId);
+        io.to(userSocketId).emit('end-ride-to-user', { ride: updatedRide });
+    })
+
     socket.on('disconnect', () => {
       console.log('A user disconnected', socket.id);
     });
