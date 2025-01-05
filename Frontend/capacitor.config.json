@@ -1,0 +1,6 @@
+{
+  "appId": "com.uber_dhyey2075.app",
+  "appName": "Uber",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

@@ -8,7 +8,7 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const newSocket = socketIoClient('http://localhost:4000', {
+    const newSocket = socketIoClient('https://uber-backend-10c0.onrender.com/', {
       transports: ['websocket'],
     });
     setSocket(newSocket);
