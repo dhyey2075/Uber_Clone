@@ -34,11 +34,11 @@ const Home = () => {
   const motoRef = useRef(null)
   const acceptRideRef = useRef(null)
 
-  const  socket  = useContext(SocketContext)
+  const socket = useContext(SocketContext)
 
 
   useEffect(() => {
-    
+
     const userString = localStorage.getItem('user');
     const user = JSON.parse(userString);
     setUser(user);
@@ -47,8 +47,8 @@ const Home = () => {
   useEffect(() => {
     if (socket) {
       console.log('Socket ID:', socket.id);
-      
-      if(user){
+
+      if (user) {
         socket.emit('addSocketIdToUserDb', { userId: user._id, type: "user" });
       }
 
@@ -58,9 +58,9 @@ const Home = () => {
 
       socket.on('otp-verify-response', (data) => {
         console.log(data);
-        if(data.message === 'OTP Verified'){
+        if (data.message === 'OTP Verified') {
           setRideStarted(true)
-        } else{
+        } else {
           alert('Invalid OTP')
         }
       })
@@ -70,9 +70,9 @@ const Home = () => {
   useEffect(() => {
     console.log(captainRide);
     setRideAccepted(true);
-  },[captainRide])
+  }, [captainRide])
 
-  const debounce = (func, delay) => { 
+  const debounce = (func, delay) => {
     let timeoutId;
     return (...args) => {
       if (timeoutId) clearTimeout(timeoutId);
@@ -178,14 +178,14 @@ const Home = () => {
     setOTP(data.ride.otp)
     console.log(data.captains.length, "captains available")
     data.captains.forEach(captain => {
-    console.log("sent to", captain.socketId)
-    socket.emit('rideRequest', { captainSocketId: captain.socketId, ride: data.ride });
-  });
+      console.log("sent to", captain.socketId)
+      socket.emit('rideRequest', { captainSocketId: captain.socketId, ride: data.ride });
+    });
   }
 
-  const handleLogout = async() => {
+  const handleLogout = async () => {
     console.log('Logging out...');
-    
+
     const res = await fetch(`${import.meta.env.VITE_BASE_URL}/users/logout`, {
       method: "GET",
       headers: {
@@ -204,13 +204,13 @@ const Home = () => {
   return (
     <div className='h-screen bg-cover' style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/48603081/97194124-ca9eb580-17cf-11eb-94a7-0499777e321b.png")' }}>
       <div className={`flex justify-between w-screen pt-4 pl-5 pb-4 h-[5%] ${isPanelOpen ? 'bg-white' : 'bg-[#f2f3f4]'}`}>
-      <div>
-        <img src="https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png" className='w-20 a' alt="" />
-      </div>
-      <div className='flex flex-col items-center bg-gray-500 h-24'>
-        <FontAwesomeIcon onClick={handleLogout} className='text-3xl' icon={faArrowRightFromBracket} /> <br />
-        <h3 className='text-md font-semibold'>Logout</h3>
-      </div>
+        <div>
+          <img src="https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png" className='w-20 a' alt="" />
+        </div>
+        <div className='mr-2'>
+          <FontAwesomeIcon onClick={handleLogout} className='text-2xl text-red-500' icon={faArrowRightFromBracket} /> <br />
+          <h3 className='text-lg font-bold text-red-500'>Logout</h3>
+        </div>
       </div>
       <div className='h-[95%] flex flex-col justify-end'>
         <div className={`bg-white w-screen relative ${isFindRide ? 'h-[60%]' : 'h-[45%]'}`}>
@@ -320,7 +320,7 @@ const Home = () => {
                 <button  className='absolute top-[-10%] left-20' onClick={() => { setIsConfirmRide(!isConfirmRide); }} >Is confirm Ride</button>
                 <button  className='absolute top-[-10%] left-64' onClick={() => { setRideAccepted(!rideAccepted); }} >rideAccepted</button> */}
                 {rideAccepted && captainRide && <div className='bg-gray-200 p-2 border-2 w-[90%] border-black rounded-md m-2'>
-                  <h3 className='text-xl font-semibold' >{rideAccepted ? 'Ride Accepted' : 'Ride not accepted'}</h3>
+                  <h3 className='text-xl font-semibold' >{rideStarted ? 'Ride Started' : rideAccepted ? 'Ride Accepted': 'Waiting for details...'}</h3>
                   <h3 className='text-xl font-bold' >Captain Name: {captainRide && captainRide.captain.fullname.firstname}</h3>
                 </div>}
                 {rideAccepted && captainRide && !rideStarted && <div className='flex flex-col items-center'>
@@ -340,19 +340,20 @@ const Home = () => {
                     </div>
                   </div>
                   {rideStarted && <div>
-                    <h3 className='text-xl font-semibold' >Ride Starte</h3>
-                    <h3>{captainRide && captainRide.captain.vehicle.color} colored {captainRide && captainRide.captain.vehicle.type} with {captainRide && captainRide.captain.vehicle.plate} number plate</h3>
+                    <h3 className='text-xl font-semibold' >Ride Start</h3>
+                    <h3>{captainRide.captain.fullname.firstname} colored {captainRide && captainRide.captain.vehicle.type} with {captainRide && captainRide.captain.vehicle.plate} number plate</h3>
 
                   </div>}
-                  {
-                    rideAccepted && captainRide  && <div>
-                      <h3>{captainRide && captainRide.captain.vehicle.color} colored {captainRide && captainRide.captain.vehicle.type} with {captainRide && captainRide.captain.vehicle.plate} number plate</h3>
-                    </div>
-                  }
+                  
                 </div>}
                 {
-                  rideStarted && <div className='mt-5'>
-                    <h3 className='text-xl font-semibold'>Ride Started</h3>
+                  rideStarted && <div className='mt-5 absolute left-10 top-56'>
+                    <div className='text-xl font-semibold capitalize'>
+                      <h3>{captainRide && captainRide.captain.vehicle.color}</h3>
+                      <h3>{captainRide && captainRide.captain.vehicle.vehicleType}</h3>
+                      <h3>{captainRide && captainRide.captain.vehicle.plate}</h3>
+                    </div>
+
                   </div>
                 }
 
