@@ -20,7 +20,6 @@ async function getFare(pickup, destination) {
     let destcoords = data.geocodingResults[0].geometry.location
 
 
-    // const distanceTimeres = await fetch(`${process.env.API_URL}/maps/getDistance?slat=${pickupcoords.lat}&slong=${pickupcoords.lng}&elat=${destcoords.lat}&elong=${destcoords.lng}`)
     const distanceTimeres = await mapService.getDistanceHelper(pickupcoords.lat, pickupcoords.lng, destcoords.lat, destcoords.lng);
     let distanceTime = await distanceTimeres.json();
     distanceTime = distanceTime.routes[0].legs[0];
