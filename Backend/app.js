@@ -12,19 +12,19 @@ const rideRoutes = require('./routes/ride.routes')
 
 connectDB();
 
-//old
-// app.use(cors({
-//   origin: (origin, cb) => cb(null, true),
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   credentials: true,
-// }));
-//new
-app.use(cors
-({
-  origin: '*',
+// old
+app.use(cors({
+  origin: (origin, cb) => cb(null, true),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
+//new
+// app.use(cors
+// ({
+//   origin: '*',
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   credentials: true,
+// }));
 
 // Handle preflight requests explicitly
 app.options('*', (req, res) => {
