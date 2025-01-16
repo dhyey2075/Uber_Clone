@@ -6,12 +6,13 @@ import { BrowserRouter } from 'react-router-dom'
 import { UserProvider } from './contexts/UserContext.jsx'
 import { SocketProvider } from './contexts/SocketContext.jsx'
 
+
 createRoot(document.getElementById('root')).render(
-    <BrowserRouter>
-      <SocketProvider>
+  <BrowserRouter>
+    <SocketProvider>
         <UserProvider>
-          <App />
+            <App />
         </UserProvider>
-      </SocketProvider>
-    </BrowserRouter>
+    </SocketProvider>
+  </BrowserRouter>
 )

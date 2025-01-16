@@ -11,7 +11,7 @@ module.exports.createRide = async (req, res, next) => {
     if(!errors.isEmpty()){
         return res.status(400).json({ errors: errors.array() });
     }
-    const { pickup, destination, vehicleType } = req.body;
+    const { pickup, destination, vehicleType, user } = req.body;
 
     const fare = await rideService.getFare(pickup, destination);
     if(!fare){
@@ -21,7 +21,7 @@ module.exports.createRide = async (req, res, next) => {
 
 
     try{
-        const ride = await rideService.createRide(pickup, destination, req.user._id, vehicleType);
+        const ride = await rideService.createRide(pickup, destination, user, vehicleType);
         return res.status(201).json({ ride, captains});
     }catch(err){
         return res.status(400).json({ messagedhyey: err.message });

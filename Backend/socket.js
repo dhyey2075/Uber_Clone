@@ -38,12 +38,17 @@ function initializeSocket(server) {
     })
 
     socket.on('update-location-captain', async(data) => {
-        const { userId, location } = data
+        const { captainId, location, userSocketId } = data
+
         if(!location || !location.lat || !location.lng){
             return socket.emit('error', {message: 'Invalid Location Data.'})
         }
 
-        await captainModel.findByIdAndUpdate(userId, { location: {
+        console.log('Location Update', data.userSocketId);
+
+        io.to(userSocketId).emit('captain-location-update', { location });
+
+        await captainModel.findByIdAndUpdate(captainId, { location: {
             lat: location.lat,
             lng: location.lng,
         } });

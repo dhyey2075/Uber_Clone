@@ -12,9 +12,16 @@ const rideRoutes = require('./routes/ride.routes')
 
 connectDB();
 
-
-app.use(cors({
-  origin: (origin, cb) => cb(null, true),
+//old
+// app.use(cors({
+//   origin: (origin, cb) => cb(null, true),
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   credentials: true,
+// }));
+//new
+app.use(cors
+({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));

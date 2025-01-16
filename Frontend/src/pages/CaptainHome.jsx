@@ -61,15 +61,17 @@ const CaptainHome = () => {
         navigator.geolocation.getCurrentPosition(position => {
           const { latitude, longitude } = position.coords;
           console.log(latitude, longitude)
-          socket.emit('update-location-captain', { userId: captain._id, location: { lat: latitude, lng: longitude } });
+          console.log("Here",acceptedRide)
+          if(acceptedRide?.user.socketId) console.log(acceptedRide.user.socketId)
+          if(acceptedRide?.user.socketId) socket.emit('update-location-captain', { userId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
         });
       }
     };
 
-    const intervalId = setInterval(sendLocation, 10000);
+    const intervalId = setInterval(sendLocation, 5000);
 
     return () => clearInterval(intervalId);
-  }, [socket, captain]);
+  }, [socket, captain, acceptedRide]);
 
   const handleLogout = async () => {
     console.log('Logging out...');
@@ -109,6 +111,11 @@ const CaptainHome = () => {
       socket.emit('rideAccepted', { userSocketId: acceptedRide.user.socketId, ride: acceptedRide.ride, captain: acceptedRide.captain })
     }
   }, [acceptedRide])
+
+  const handleDeclineRide = () => {
+    console.log('Declining Ride...');
+    setRides(rides.filter(ride => ride._id !== rides[0]._id))
+  }
 
   return (
     <div className='relative h-screen bg-cover flex flex-col justify-between' style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/48603081/97194124-ca9eb580-17cf-11eb-94a7-0499777e321b.png")' }}>
@@ -202,7 +209,7 @@ const CaptainHome = () => {
             <button onClick={handleAcceptRide} className='bg-green-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md'>Accept Ride</button>
           </div>
           <div>
-            <button className='bg-red-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md'>Decline Ride</button>
+            <button onClick={handleDeclineRide} className='bg-red-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md'>Decline Ride</button>
           </div>
         </div>
       </div>}

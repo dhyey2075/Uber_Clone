@@ -7,6 +7,10 @@ import { faArrowLeft, faChevronDown, faArrowRightFromBracket } from '@fortawesom
 import { BlinkBlur } from 'react-loading-indicators';
 import { ThreeDot } from 'react-loading-indicators';
 import { SocketContext } from '../contexts/SocketContext';
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import 'leaflet-routing-machine';
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -28,16 +32,38 @@ const Home = () => {
   const [otp, setOTP] = useState(null)
   const [cnfRide, setCnfRide] = useState(false)
   const [rideStarted, setRideStarted] = useState(false)
+  const [creatingRide, setCreatingRide] = useState(false)
+  const [captainCoords, setCaptainCoords] = useState(null)
+  const [positions, setPositions] = useState([]);
 
   const carRef = useRef(null)
   const autoRef = useRef(null)
   const motoRef = useRef(null)
   const acceptRideRef = useRef(null)
+  const mapRef = useRef(null);
+  const MapRef = useRef(null);
+
+  const latitude = 0;
+  const longitude = 0;
+
+  const customCarIcon = L.icon({
+    iconUrl: 'https://imgs.search.brave.com/wjnuc5LPqljfMKA1Pw-Nz-GVA7wakGDtBrUyEi_ueXs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/cG5nLmNvbS9pbWct/cG5nL2Nhci1wbmct/dG9wLXdoaXRlLXRv/cC1jYXItcG5nLWlt/YWdlLTM0ODY3LTU4/Ny5wbmc',
+    iconSize: [40, 15],
+    iconAnchor: [15, 10],
+    popupAnchor: [-3, -76]
+  });
 
   const socket = useContext(SocketContext)
 
 
   useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        console.log(latitude, longitude)
+        setPickupCoords({ lat: latitude, lng: longitude })
+      });
+    }
 
     const userString = localStorage.getItem('user');
     const user = JSON.parse(userString);
@@ -52,10 +78,19 @@ const Home = () => {
         socket.emit('addSocketIdToUserDb', { userId: user._id, type: "user" });
       }
 
-      socket.on('rideAcceptedToUser', async(data) => {
+      socket.on('rideAcceptedToUser', async (data) => {
+        console.log("Ride acc data", data)
         setCaptainRide(data);
-        
-        
+
+
+      })
+
+      socket.on('captain-location-update', (data) => {
+        console.log('New Captain location:', data);
+        if (captainRide) {
+          console.log("Changing location...")
+          setCaptainRide({ ...captainRide, captain: { ...captainRide.captain, location: data.location } })
+        }
       })
 
       socket.on('otp-verify-response', (data) => {
@@ -81,19 +116,25 @@ const Home = () => {
         setVehicleType('');
         setExpectedTime(null);
         alert('Your ride has ended. Thank you for using our service!');
+        setCaptainCoords(null);
+
       });
     }
   }, [socket, user]);
 
   useEffect(() => {
     console.log("captainRide", captainRide);
-    if(rideData){
+    if (rideData) {
       rideData.captains.forEach(captain => {
-        if(captain.socketId !== captainRide.captain.socketId){
+        if (captain.socketId !== captainRide.captain.socketId) {
           console.log("cancel request sent to", captain.socketId)
           socket.emit('rideRequestCancel', { userSocketId: user.socketId, ride: rideData.ride, captain: captain });
         }
       });
+    }
+    if (captainRide) {
+      console.log(captainRide)
+      setPositions([[captainRide.captain.location.lat, captainRide.captain.location.lng], [pickupCoords.lat, pickupCoords.lng]]);
     }
     setRideAccepted(true);
   }, [captainRide])
@@ -185,6 +226,7 @@ const Home = () => {
   }
 
   const confirmRide = async () => {
+    setCreatingRide(true)
     const response = await fetch(`${import.meta.env.VITE_BASE_URL}/rides/create-ride`, {
       method: 'POST',
       headers: {
@@ -194,7 +236,8 @@ const Home = () => {
       body: JSON.stringify({
         pickup,
         destination,
-        vehicleType
+        vehicleType,
+        user: user._id
       })
     })
     const data = await response.json()
@@ -207,6 +250,7 @@ const Home = () => {
       console.log("sent to", captain.socketId)
       socket.emit('rideRequest', { captainSocketId: captain.socketId, ride: data.ride });
     });
+    setCreatingRide(false)
   }
 
   const handleLogout = async () => {
@@ -226,10 +270,30 @@ const Home = () => {
     window.location.reload()
   }
 
+  const RoutingMachine = ({ start, end }) => {
+    const map = useMap();
+  
+    React.useEffect(() => {
+      if (!map) return;
+  
+      const routingControl = L.Routing.control({
+        waypoints: [L.latLng(start.lat, start.lng), L.latLng(end.lat, end.lng)],
+        routeWhileDragging: false,
+      addWaypoints: false, // Disable adding waypoints by clicking
+      show: true, // Hide the instruction panel
+      createMarker: () => null,
+      }).addTo(map);
+  
+      return () => map.removeControl(routingControl);
+    }, [map, start, end]);
+  
+    return null;
+  };
+
 
   return (
-    <div className='h-screen bg-cover' style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/48603081/97194124-ca9eb580-17cf-11eb-94a7-0499777e321b.png")' }}>
-      <div className={`flex justify-between w-screen pt-4 pl-5 pb-4 h-[5%] ${isPanelOpen ? 'bg-white' : 'bg-[#f2f3f4]'}`}>
+    <div className='' >
+      <div className={`flex justify-between w-screen pt-2 pl-5 h-[5%] ${isPanelOpen ? 'bg-white' : 'bg-[#f2f3f4]'}`}>
         <div>
           <img src="https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png" className='w-20 a' alt="" />
         </div>
@@ -237,6 +301,18 @@ const Home = () => {
           <FontAwesomeIcon onClick={handleLogout} className='text-2xl text-red-500' icon={faArrowRightFromBracket} /> <br />
           <h3 className='text-lg font-bold text-red-500'>Logout</h3>
         </div>
+      </div>
+      <div className='h-[60vh] w-screen block' ref={MapRef} >
+        {pickupCoords && <MapContainer center={[pickupCoords.lat, pickupCoords.lng]} zoom={13} ref={mapRef} style={{ height: "60vh", width: "100vw" }}>
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+          />
+          {captainRide && <Marker position={[captainRide.captain.location.lat, captainRide.captain.location.lng]} icon={customCarIcon} ></Marker>}
+          {captainRide && <Marker position={[pickupCoords.lat, pickupCoords.lng]} icon={customCarIcon} ></Marker>}
+          {positions.length > 0 && <RoutingMachine start={{lat: captainRide.captain.location.lat, lng: captainRide.captain.location.lng}} end={{lat: pickupCoords.lat, lng: pickupCoords.lng}} />}
+        </MapContainer>
+        }
       </div>
       <div className='h-[95%] flex flex-col justify-end'>
         <div className={`bg-white w-screen relative ${isFindRide ? 'h-[60%]' : 'h-[45%]'}`}>
@@ -249,7 +325,7 @@ const Home = () => {
               <h3 ref={PanelCloseRef} onClick={() => setIsPanelOpen(false)} className='mr-10 mt-5'><FontAwesomeIcon icon={faChevronDown} /></h3>
             </div>
             <div><input className='bg-[#f2f3f4] w-[85%] ml-7 pl-7 pt-2 pb-2 rounded-md text-lg font-semibold mb-3'
-              onClick={() => { setIsPanelOpen(true); setActiveInput('pickup'); setIsFindRide(false) }}
+              onClick={() => { setIsPanelOpen(true); setActiveInput('pickup'); setIsFindRide(false); MapRef.current.style.display = 'none' }}
               type="text" placeholder='Enter Pickup'
               value={pickup}
               onChange={(e) => setPickup(e.target.value)}
@@ -259,7 +335,7 @@ const Home = () => {
               onClick={() => { setIsPanelOpen(true); setActiveInput('destination'); setIsFindRide(false) }}
               onChange={(e) => setDestination(e.target.value)}
             /></div>
-            <div className='m-auto text-center'><button type='submit' className='bg-black text-white w-1/2 rounded-sm pt-2 pb-2 font-semibold text-xl' >Find Rides</button></div>
+            <div className='m-auto text-center'><button onClick={() => MapRef.current.style.display = 'block'} type='submit' className='bg-black text-white w-1/2 rounded-sm pt-2 pb-2 font-semibold text-xl' >Find Rides</button></div>
           </form>}
           {/* {isFindRide && <div>
             <h3 className='m-10 text-xl' >Distance: {rideData.readable_distance} kms</h3>
@@ -346,7 +422,7 @@ const Home = () => {
                 <button  className='absolute top-[-10%] left-20' onClick={() => { setIsConfirmRide(!isConfirmRide); }} >Is confirm Ride</button>
                 <button  className='absolute top-[-10%] left-64' onClick={() => { setRideAccepted(!rideAccepted); }} >rideAccepted</button> */}
                 {rideAccepted && captainRide && <div className='bg-gray-200 p-2 border-2 w-[90%] border-black rounded-md m-2'>
-                  <h3 className='text-xl font-semibold' >{rideStarted ? 'Ride Started' : rideAccepted ? 'Ride Accepted': 'Waiting for details...'}</h3>
+                  <h3 className='text-xl font-semibold' >{rideStarted ? 'Ride Started' : rideAccepted ? 'Ride Accepted' : 'Waiting for details...'}</h3>
                   <h3 className='text-xl font-bold' >Captain Name: {captainRide && captainRide.captain.fullname.firstname}</h3>
                 </div>}
                 {rideAccepted && captainRide && !rideStarted && <div className='flex flex-col items-center'>
@@ -370,7 +446,7 @@ const Home = () => {
                     <h3>{captainRide.captain.fullname.firstname} colored {captainRide && captainRide.captain.vehicle.type} with {captainRide && captainRide.captain.vehicle.plate} number plate</h3>
 
                   </div>}
-                  
+
                 </div>}
                 {
                   rideStarted && <div className='mt-5 absolute left-10 top-56'>

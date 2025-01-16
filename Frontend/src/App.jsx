@@ -9,11 +9,15 @@ import CaptainSignIn from './pages/CaptainSignIn'
 import Home from './pages/Home'
 import UserProtectWrapper from './pages/UserProtectWrapper'
 import CaptainHome from './pages/CaptainHome'
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Map from './pages/Map'
 
 function App() {
 
   return (
     <>
+      <ToastContainer />
         <Routes>
           <Route path='/' element={<Start />} />
           <Route path='/home' element={<UserProtectWrapper><Home /></UserProtectWrapper>} />
@@ -22,6 +26,7 @@ function App() {
           <Route path='/signin' element={<UserSignIn />} />
           <Route path='/captain-signup' element={<CaptainSignUp />} />
           <Route path='/captain-signin' element={<CaptainSignIn />} />
+          <Route path='/map' element={<Map/>}  />
         </Routes>
     </>
   )

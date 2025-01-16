@@ -1,17 +1,22 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useTransition } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useContext } from 'react'
 import { UserContext } from '../contexts/UserContext'
+import { toast, Bounce } from 'react-toastify';
+import { ThreeDot } from 'react-loading-indicators'
 
 const UserSignIn = () => {
   const { user, updateUser } = useContext(UserContext)
   const navigator = useNavigate();
   const [email, setEmail] = useState("");   
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState();
+
 
   const handleSubmit = async(e) => {
+    setIsSubmitting(true);
     e.preventDefault();
     setEmail("");
     setPassword("");
@@ -27,14 +32,37 @@ const UserSignIn = () => {
     });
     const data = await res.json();
     if(data.token){
-      localStorage.setItem('token', data.token);
+        localStorage.setItem('token', data.token);
       updateUser(data.user.fullname.firstname, data.user.fullname.lastname, data.user.email);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      navigator('/home');
+        localStorage.setItem('user', JSON.stringify(data.user));
+        toast.success('Logged in successfully!', {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          transition: Bounce,
+          })
+      navigator('/home')
     }
     else{
-      alert("Invalid email or password");
+      toast.error('Invalid email or password!', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        transition: Bounce,
+        });
+        
     }
+    setIsSubmitting(false);
   }
 
   return (
@@ -52,6 +80,7 @@ const UserSignIn = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className='w-80 bg-[#e6e9ec] p-3 rounded-lg'
+              placeholder='john@doe.com'
             />
           </div>
           <div className='flex flex-col mb-10'>
@@ -60,12 +89,13 @@ const UserSignIn = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className='w-80 bg-[#e6e9ec] p-3 rounded-lg'
+              placeholder='********'
             />
           </div>
-          <button className='bg-black text-white w-1/2 pt-2 pb-2 text-xl rounded-md mb-10' type="submit">Sign In</button>
+          <button className='bg-black text-white w-1/2 pt-2 pb-2 text-xl rounded-md mb-10' disabled={isSubmitting} type="submit">{isSubmitting ? <ThreeDot color="#ffffff" size="small" text="" textColor="" /> : "Sign in"}</button>
         </div>
       </form>
-      <div className='text-center m-auto text-lg text-white'>Don't have an account? <Link to={'/signup'} className='text-blue-700'>Register here</Link></div>
+      <div className='text-center m-auto text-lg text-white'>Don't have an account? <Link to={'/signup'} className='text-blue-700 hover:underline'>Register here</Link></div>
       </div>
       <div className='mb-24 pt-3 pb-3 items-center m-auto bg-green-500 w-1/2 flex justify-center rounded-lg'>
         <Link to={'/captain-signin'} className='text-xl text-white font-bold' >Sign in as Captain</Link>
