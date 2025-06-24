@@ -1,7 +1,41 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+
+function useOrientation() {
+  const getOrientation = () =>
+    window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape';
+
+  const [orientation, setOrientation] = useState(getOrientation());
+
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      setOrientation(getOrientation());
+    };
+
+    window.addEventListener('resize', handleOrientationChange);
+
+    return () => window.removeEventListener('resize', handleOrientationChange);
+  }, []);
+
+  return orientation;
+}
 
 const Start = () => {
+        const orientation = useOrientation();
+        
+        useEffect(() => {
+        if (orientation === 'landscape') {
+                toast.info('Please switch to portrait mode for better experience', {
+                    position: "top-center",
+                        autoClose: 5000,
+                        hideProgressBar: false,
+                        closeOnClick: true,
+                        pauseOnHover: true,
+                        draggable: true
+                });
+        }
+        }, [orientation]);
 return (
     <div className='bg-cover bg-center h-screen flex flex-col justify-between' style={{ backgroundImage: "url('https://images.pexels.com/photos/2958070/pexels-photo-2958070.jpeg?auto=compress&cs=tinysrgb&w=600')" }}>
             <div>
