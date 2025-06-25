@@ -11,6 +11,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import 'leaflet-routing-machine';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -35,6 +36,7 @@ const Home = () => {
   const [creatingRide, setCreatingRide] = useState(false)
   const [captainCoords, setCaptainCoords] = useState(null)
   const [positions, setPositions] = useState([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const carRef = useRef(null)
   const autoRef = useRef(null)
@@ -55,6 +57,8 @@ const Home = () => {
 
   const socket = useContext(SocketContext)
 
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -73,6 +77,8 @@ const Home = () => {
   useEffect(() => {
     if (socket) {
       console.log('Socket ID:', socket.id);
+
+      setMapLoaded(true);
 
       if (user) {
         socket.emit('addSocketIdToUserDb', { userId: user._id, type: "user" });
@@ -267,7 +273,7 @@ const Home = () => {
     socket.emit('removeSocketIdFromUserDb', ({ userId: user._id, type: "user" }));
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.reload()
+    navigate('/');
   }
 
   const RoutingMachine = ({ start, end }) => {
@@ -303,7 +309,7 @@ const Home = () => {
         </div>
       </div>
       <div className='h-[60vh] w-screen block' ref={MapRef} >
-        {pickupCoords && <MapContainer center={[pickupCoords.lat, pickupCoords.lng]} zoom={13} ref={mapRef} style={{ height: "60vh", width: "100vw" }}>
+        {mapLoaded ? (pickupCoords && <MapContainer center={[pickupCoords.lat, pickupCoords.lng]} zoom={13} ref={mapRef} style={{ height: "60vh", width: "100vw" }}>
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
@@ -311,7 +317,11 @@ const Home = () => {
           {captainRide && <Marker position={[captainRide.captain.location.lat, captainRide.captain.location.lng]} icon={customCarIcon} ></Marker>}
           {captainRide && <Marker position={[pickupCoords.lat, pickupCoords.lng]} icon={customCarIcon} ></Marker>}
           {positions.length > 0 && <RoutingMachine start={{lat: captainRide.captain.location.lat, lng: captainRide.captain.location.lng}} end={{lat: pickupCoords.lat, lng: pickupCoords.lng}} />}
-        </MapContainer>
+        </MapContainer>) : (
+          <div className="flex flex-col items-center justify-center h-full pt-20">
+            <ThreeDot variant="bounce" color="black" size="large" text="Loading map..." textColor="black" />
+          </div>
+        )
         }
       </div>
       <div className='h-[95%] flex flex-col justify-end'>
@@ -385,7 +395,11 @@ const Home = () => {
                 <button onClick={confirmRide} className='bg-black text-white w-screen rounded-md pr-20 pt-3 pb-3 pl-20 text-xl font-bold hover:bg-gray-800'>Book {vehicleType === '' ? 'Now' : vehicleType}</button>
               </div>
             </div>}
-          {isFindRide && !fare && <div className='text-center pt-5'><h3 className='text-2xl font-bold' >Fetching fare...</h3></div>}
+          {isFindRide && !fare && (
+            <div className='flex flex-col items-center pt-10'>
+              <ThreeDot variant="bounce" color="black" size="large" text="Fetching fare..." textColor="black" />
+            </div>
+          )}
 
 
           {isConfirmRide &&
@@ -472,7 +486,11 @@ const Home = () => {
 
         </div>
         <div ref={PanelOpenRef} className={`bg-white ${isFindRide ? 'h-0' : ''}`}>
-          {isPanelOpen && !predictions.predictions && <div className='text-center pt-5'><h3 className='text-xl font-semibold'>Enter text to get suggestions...</h3></div>}
+          {isPanelOpen && !predictions.predictions && (
+            <div className='flex flex-col items-center pt-5'>
+              <BlinkBlur color="black" size="medium" text="Enter text to get suggestions..." textColor="black" />
+            </div>
+          )}
           {!isFindRide && !isConfirmRide && predictions.predictions && predictions.predictions.map((prediction, index) => {
             return (
               <div
