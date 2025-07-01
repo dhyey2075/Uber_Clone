@@ -9,9 +9,10 @@ import { ThreeDot } from 'react-loading-indicators';
 import { SocketContext } from '../contexts/SocketContext';
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, Popup } from "react-leaflet";
 import 'leaflet-routing-machine';
 import { useNavigate } from 'react-router-dom';
+import { faLocationCrosshairs } from '@fortawesome/free-solid-svg-icons';
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -54,10 +55,34 @@ const Home = () => {
     iconAnchor: [15, 10],
     popupAnchor: [-3, -76]
   });
+  const userLocationIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: "<div style='background-color: #3b82f6; width: 15px; height: 15px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px #3b82f6;'></div>",
+    iconSize: [15, 15],
+    iconAnchor: [7.5, 7.5],
+    popupAnchor: [0, -7.5]
+  });
+
 
   const socket = useContext(SocketContext)
 
   const navigate = useNavigate();
+
+  const setCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        setPickupCoords({ lat: latitude, lng: longitude });
+        // Reverse geocode to get address
+        fetch(`${import.meta.env.VITE_BASE_URL}/maps/getReverseGeocode?lat=${latitude}&long=${longitude}`)
+          .then(res => res.json())
+          .then(data => {
+            setPickup(data.name);
+          })
+          .catch(err => console.log(err));
+      });
+    }
+  };
 
 
   useEffect(() => {
@@ -100,7 +125,6 @@ const Home = () => {
       })
 
       socket.on('otp-verify-response', (data) => {
-        console.log(data);
         if (data.message === 'OTP Verified') {
           setRideStarted(true)
         } else {
@@ -122,7 +146,6 @@ const Home = () => {
         setVehicleType('');
         setExpectedTime(null);
         alert('Your ride has ended. Thank you for using our service!');
-        setCaptainCoords(null);
 
       });
     }
@@ -130,7 +153,7 @@ const Home = () => {
 
   useEffect(() => {
     console.log("captainRide", captainRide);
-    if (rideData) {
+    if (captainRide && rideData) { // Add null check for captainRide
       rideData.captains.forEach(captain => {
         if (captain.socketId !== captainRide.captain.socketId) {
           console.log("cancel request sent to", captain.socketId)
@@ -138,11 +161,13 @@ const Home = () => {
         }
       });
     }
-    if (captainRide) {
+    if (captainRide && pickupCoords) { // Add null check for both captainRide and pickupCoords
       console.log(captainRide)
       setPositions([[captainRide.captain.location.lat, captainRide.captain.location.lng], [pickupCoords.lat, pickupCoords.lng]]);
     }
-    setRideAccepted(true);
+    if (captainRide) { // Only set rideAccepted if captainRide exists
+      setRideAccepted(true);
+    }
   }, [captainRide])
 
   const debounce = (func, delay) => {
@@ -278,21 +303,21 @@ const Home = () => {
 
   const RoutingMachine = ({ start, end }) => {
     const map = useMap();
-  
+
     React.useEffect(() => {
       if (!map) return;
-  
+
       const routingControl = L.Routing.control({
         waypoints: [L.latLng(start.lat, start.lng), L.latLng(end.lat, end.lng)],
         routeWhileDragging: false,
-      addWaypoints: false, // Disable adding waypoints by clicking
-      show: true, // Hide the instruction panel
-      createMarker: () => null,
+        addWaypoints: false, // Disable adding waypoints by clicking
+        show: true, // Hide the instruction panel
+        createMarker: () => null,
       }).addTo(map);
-  
+
       return () => map.removeControl(routingControl);
     }, [map, start, end]);
-  
+
     return null;
   };
 
@@ -314,9 +339,18 @@ const Home = () => {
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
           />
-          {captainRide && <Marker position={[captainRide.captain.location.lat, captainRide.captain.location.lng]} icon={customCarIcon} ></Marker>}
-          {captainRide && <Marker position={[pickupCoords.lat, pickupCoords.lng]} icon={customCarIcon} ></Marker>}
-          {positions.length > 0 && <RoutingMachine start={{lat: captainRide.captain.location.lat, lng: captainRide.captain.location.lng}} end={{lat: pickupCoords.lat, lng: pickupCoords.lng}} />}
+          {/* User's current location marker */}
+          {pickupCoords && <Marker position={[pickupCoords.lat, pickupCoords.lng]} icon={userLocationIcon}>
+            <Popup>Your current location</Popup>
+          </Marker>}
+
+          {/* Captain's location marker when ride is accepted */}
+          {captainRide && captainRide.captain && captainRide.captain.location && <Marker position={[captainRide.captain.location.lat, captainRide.captain.location.lng]} icon={customCarIcon}>
+            <Popup>Captain: {captainRide.captain.fullname.firstname}</Popup>
+          </Marker>}
+
+          {/* Routing between captain and user */}
+          {captainRide && captainRide.captain && captainRide.captain.location && pickupCoords && positions.length > 0 && <RoutingMachine start={{ lat: captainRide.captain.location.lat, lng: captainRide.captain.location.lng }} end={{ lat: pickupCoords.lat, lng: pickupCoords.lng }} />}
         </MapContainer>) : (
           <div className="flex flex-col items-center justify-center h-full pt-20">
             <ThreeDot variant="bounce" color="black" size="large" text="Loading map..." textColor="black" />
@@ -334,12 +368,26 @@ const Home = () => {
               <h3 className='pl-7 text-2xl font-semibold mb-5 mt-3'>Where to go?</h3>
               <h3 ref={PanelCloseRef} onClick={() => setIsPanelOpen(false)} className='mr-10 mt-5'><FontAwesomeIcon icon={faChevronDown} /></h3>
             </div>
-            <div><input className='bg-[#f2f3f4] w-[85%] ml-7 pl-7 pt-2 pb-2 rounded-md text-lg font-semibold mb-3'
-              onClick={() => { setIsPanelOpen(true); setActiveInput('pickup'); setIsFindRide(false); MapRef.current.style.display = 'none' }}
-              type="text" placeholder='Enter Pickup'
-              value={pickup}
-              onChange={(e) => setPickup(e.target.value)}
-            /></div>
+            <div className="relative">
+              <input
+                className='bg-[#f2f3f4] w-[85%] ml-7 pl-7 pt-2 pb-2 rounded-md text-lg font-semibold mb-3'
+                onClick={() => { setIsPanelOpen(true); setActiveInput('pickup'); setIsFindRide(false); MapRef.current.style.display = 'none' }}
+                type="text"
+                placeholder='Enter Pickup'
+                value={pickup}
+                onChange={(e) => setPickup(e.target.value)}
+              />
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentLocation();
+                }}
+                className="absolute right-20 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors"
+                title="Use current location"
+              >
+                <FontAwesomeIcon icon={faLocationCrosshairs} />
+              </button>
+            </div>
             <div><input className='bg-[#f2f3f4] w-[85%] ml-7 pl-7 pt-2 pb-2 pr-3 rounded-md text-lg font-semibold mb-7' type="text" placeholder='Enter your destination'
               value={destination}
               onClick={() => { setIsPanelOpen(true); setActiveInput('destination'); setIsFindRide(false) }}

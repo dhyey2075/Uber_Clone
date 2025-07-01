@@ -37,3 +37,23 @@ module.exports.getDistance = async (req, res) => {
         return res.status(400).json({message: err.message})
     }
 }
+
+module.exports.getReverseGeocode = async (req, res) => {
+    const {lat, long} = req.query
+    console.log(lat, long);
+    try {
+        const response = await mapsService.getReverseGeocodeHelper(lat, long);
+        const data = await response.json()
+        console.log(data)
+        if(data.status === 'ok'){
+            const location = data.results[0];
+            return res.status(200).json({ name: location.name, address: location.formatted_address, coordinates: location.geometry.location });
+        } else {
+            return res.status(400).json({ message: 'Invalid coordinates' });
+        }
+
+    } catch (error) {
+        console.log(error);
+        return res.status(400).json({ message: 'Error fetching reverse geocode data' });
+    }
+}

@@ -10,4 +10,6 @@ router.get('/getAutoComplete', mapsController.getAutoComplete);
 
 router.get('/getDistance', mapsController.getDistance);
 
+router.get('/getReverseGeocode', mapsController.getReverseGeocode);
+
 module.exports = router;

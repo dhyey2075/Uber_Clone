@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useContext, useRef } from 'react'
 import { SocketContext } from '../contexts/SocketContext'
-import { use } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { ThreeDot } from 'react-loading-indicators';
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, useMap, Popup } from "react-leaflet";
+import 'leaflet-routing-machine';
 
 const CaptainHome = () => {
   const [captain, setCaptain] = useState(null)
@@ -9,17 +15,35 @@ const CaptainHome = () => {
   const [acceptedRide, setAcceptedRide] = useState(null)
   const [otp, setOtp] = useState('')
   const [rideStarted, setRideStarted] = useState(false)
+  const [captainLocation, setCaptainLocation] = useState(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
   const socket = useContext(SocketContext)
+  const mapRef = useRef(null)
+
+  // Captain's vehicle icon
+  const captainIcon = L.icon({
+    iconUrl: 'https://imgs.search.brave.com/wjnuc5LPqljfMKA1Pw-Nz-GVA7wakGDtBrUyEi_ueXs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9wbHVz/cG5nLmNvbS9pbWct/cG5nL2Nhci1wbmct/dG9wLXdoaXRlLXRv/cC1jYXItcG5nLWlt/YWdlLTM0ODY3LTU4/Ny5wbmc',
+    iconSize: [40, 20],
+    iconAnchor: [20, 10],
+    popupAnchor: [0, -10]
+  });
+
+  // User location icon for pickup point
+  const userLocationIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854929.png',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15]
+  });
 
   useEffect(() => {
     if (socket) {
       console.log('Socket', socket.id)
       if (captain) {
-        socket.emit('addSocketIdToUserDb', { userId: captain._id, type: 'captain' })
+        console.log('Captain logged in')
       }
       const rideRequestHandler = (data) => {
-        console.log("1 July", data);
         rides.find(ride => ride._id === data.ride._id) ? console.log('Ride already exists') :
           setRides((rides) => [...rides, data.ride]);
       };
@@ -32,7 +56,6 @@ const CaptainHome = () => {
           setRideStarted(true)
         } else {
           alert('Invalid OTP')
-          setOtp('')
         }
       })
 
@@ -52,7 +75,15 @@ const CaptainHome = () => {
     const captain = JSON.parse(captainString);
     setCaptain(captain);
     console.log(captain);
-
+    
+    // Get captain's current location and set up map
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        setCaptainLocation({ lat: latitude, lng: longitude });
+        setMapLoaded(true);
+      });
+    }
   }, [])
 
   useEffect(() => {
@@ -63,24 +94,74 @@ const CaptainHome = () => {
   }, [captain, socket])
 
   useEffect(() => {
-    const sendLocation = () => {
-      console.log("Hello")
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
+  const sendLocation = () => {
+    if (!captain || !socket) return; // Don't proceed if captain or socket is null
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        position => {
           const { latitude, longitude } = position.coords;
-          console.log(latitude, longitude)
-          console.log("Here",acceptedRide)
-          if(acceptedRide?.user.socketId) console.log("1 July", acceptedRide.user.socketId)
-          socket.emit('update-location-captain', { captainId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
-          console.log("Location sent to server", { captainId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
-        });
+          const locationData = { lat: latitude, lng: longitude };
+          
+          // Update local state
+          setCaptainLocation(locationData);
+          
+          // Prepare socket data with null checks
+          const socketData = {
+            captainId: captain._id,
+            location: locationData,
+            userSocketId: acceptedRide?.user?.socketId || null,
+            captainSocketId: socket.id
+          };
+
+          // Only emit if we have valid captain ID and socket
+          if (socketData.captainId && socketData.captainSocketId) {
+            socket.emit('update-location-captain', socketData);
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+  };
+
+  const intervalId = setInterval(sendLocation, 5000);
+  return () => clearInterval(intervalId);
+}, [socket, captain, acceptedRide]);
+
+useEffect(() => {
+  if (acceptedRide && captain && socket) {
+    // Ensure we have all required data
+    const rideData = {
+      userSocketId: acceptedRide.user?.socketId,
+      ride: {
+        ...acceptedRide,
+        captain: {
+          ...captain,
+          location: captainLocation, // Include current location
+          socketId: socket.id // Include current socket ID
+        }
+      },
+      captain: {
+        ...captain,
+        location: captainLocation,
+        socketId: socket.id
       }
     };
 
-    const intervalId = setInterval(sendLocation, 5000);
-
-    return () => clearInterval(intervalId);
-  }, [socket, captain, acceptedRide]);
+    // Only emit if we have user socket ID
+    if (rideData.userSocketId) {
+      setIsAccepted(true);
+      setRides([]);
+      console.log("2 july", rideData)
+      socket.emit('rideAccepted', rideData);
+    } else {
+      console.error('Missing user socket ID for ride acceptance');
+    }
+  }
+}, [acceptedRide, captain, socket, captainLocation]);
 
   const handleLogout = async () => {
     console.log('Logging out...');
@@ -100,152 +181,248 @@ const CaptainHome = () => {
   }
 
   const handleAcceptRide = async () => {
-    console.log('Accepting Ride...');
+  if (!captain || !rides[0]) {
+    console.error('Missing required data for ride acceptance');
+    return;
+  }
+
+  try {
     const res = await fetch(`${import.meta.env.VITE_BASE_URL}/rides/confirm-ride`, {
       method: "POST",
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ ride: rides[0], captainId: captain._id })
-    })
-    const data = await res.json()
-    console.log(data);
-    setAcceptedRide(data);
-  }
-  useEffect(() => {
-    if (acceptedRide) {
-      setRides([])
-      setIsAccepted(true)
-      socket.emit('rideAccepted', { userSocketId: acceptedRide.user.socketId, ride: acceptedRide.ride, captain: acceptedRide.captain })
-    }
-  }, [acceptedRide])
+      body: JSON.stringify({
+        ride: rides[0],
+        captainId: captain._id,
+        location: captainLocation, // Include current location
+        socketId: socket?.id // Include socket ID
+      })
+    });
 
-  const handleDeclineRide = () => {
-    console.log('Declining Ride...');
-    setRides(rides.filter(ride => ride._id !== rides[0]._id))
+    if (!res.ok) throw new Error('Failed to confirm ride');
+    
+    const data = await res.json();
+    if (data && data.user?.socketId) {
+      setAcceptedRide(data);
+    } else {
+      console.error('Invalid ride data received');
+    }
+  } catch (error) {
+    console.error('Error accepting ride:', error);
+    alert('Failed to accept ride. Please try again.');
   }
+};
+  
+  const handleDeclineRide = () => {
+    setRides(rides.slice(1))
+  }
+
+  const handleVerifyOtp = async () => {
+    const rideId = acceptedRide.ride._id
+    const userSocketId = acceptedRide.user.socketId
+    console.log("2july", rideId, otp, userSocketId);
+    socket.emit('otp-verify', { rideId, otp, socketId: userSocketId })
+  }
+
+  const handleEndRide = async () => {
+    const rideId = acceptedRide._id
+    const userSocketId = acceptedRide.user.socketId
+    const captainId = captain._id
+    socket.emit('end-ride', { rideId, userSocketId, captainId })
+    setAcceptedRide(null)
+    setIsAccepted(false)
+    setRideStarted(false)
+    setOtp('')
+  }
+
+  // Routing component for showing route to pickup location
+  const RoutingMachine = ({ start, end }) => {
+    const map = useMap();
+  
+    React.useEffect(() => {
+      if (!map) return;
+  
+      const routingControl = L.Routing.control({
+        waypoints: [L.latLng(start.lat, start.lng), L.latLng(end.lat, end.lng)],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        show: false,
+        createMarker: () => null,
+      }).addTo(map);
+  
+      return () => map.removeControl(routingControl);
+    }, [map, start, end]);
+  
+    return null;
+  };
 
   return (
-    <div className='relative h-screen bg-cover flex flex-col justify-between' style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/48603081/97194124-ca9eb580-17cf-11eb-94a7-0499777e321b.png")' }}>
-      <div className='flex justify-between bg-[#f2f3f4] items-center'>
-        <div >
-          <img className='h-12 mt-3 ml-5 pb-4' src="https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png" alt="uber logo" />
-        </div>
-        <div onClick={handleLogout}>
-          <h3 className='text-xl font-bold mr-6 bg-red-500 px-4 py-0 rounded-sm'>Logout</h3>
-        </div>
-      </div>
-      <div onClick={() => {
-        if (rides.length == 0) {
-          setRides([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        } else {
-          setRides([])
-        }
-      }} ><button onClick={() => setIsAccepted(false)} >Here</button></div>
-      {rides.length == 0 && !isAccepted && <div className='h-[50%] bg-white p-3' >
-        <div className='flex justify-start gap-4 items-center'>
-          <div className='bg-gray-300 w-12 h-12 rounded-full flex justify-center items-center'>
-            <img className='h-10' src="https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png" alt="user" />
-          </div>
-          <div className=''>
-            <h1 className='text-lg font-bold'>Welcome {captain?.fullname.firstname}</h1>
-            <p className='text-lg text-gray-500'>Captain</p>
-          </div>
-          <div className='ml-24'>
-            <h1 className='text-2xl font-bold'>₹{rides.length > 0 && rides[0].fare}</h1>
-            <p className='text-lg text-gray-500'>Earned</p>
-          </div>
-        </div>
-        <div className='flex flex-col gap-4 mt-4 m-3 bg-[#f2f3f4] p-3 rounded-lg'>
-          <div>
-            <h3 className='text-3xl font-bold'>Earnings</h3>
-          </div>
-          <div className=' flex gap-4 justify-between'>
-            <div>
-              <h3 className='text-2xl font-semibold'>Today</h3>
-              <p className='text-lg'>₹292.90</p>
-            </div>
-            <div>
-              <h3 className='text-2xl font-semibold'>This Week</h3>
-              <p className='text-lg'>₹292.90</p>
-            </div>
-            <div>
-              <h3 className='text-2xl font-semibold'>Till Now</h3>
-              <p className='text-lg'>₹292.90</p>
-            </div>
-          </div>
-        </div>
-      </div>}
-      {!acceptedRide && rides.length > 0 && <div className='h-[50%] bg-white p-3' >
-        <div className='flex justify-between items-center'>
-          <h3 className='text-2xl font-bold mb-4'>New Ride Available</h3>
-        </div>
-        <div name="rideinfo" className='flex justify-start gap-4 items-center bg-yellow-300 p-3 rounded-md'>
-          <div className='bg-gray-300 w-12 h-12 rounded-full flex justify-center items-center'>
-            <img className='h-10' src="https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png" alt="user" />
-          </div>
-          <div className='flex justify-between w-full items-center'>
-            <div className=''>
-              <h1 className='text-xl font-bold'>{captain?.fullname.firstname}</h1>
-            </div>
-            <div className=''>
-              <h1 className='text-2xl font-bold'>₹{rides.length > 0 && rides[0]?.fare}</h1>
-              <p className='text-xl text-black-500 font-semibold'>2.2kms</p>
-            </div>
-          </div>
-        </div>
-        <div className=''>
-          <div className='flex justify-start items-center mt-4 gap-10'>
-            <div className='ml-2'>
-              <img className='h-10' src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSCOksQcaJtnUw6xaUktQq5xZovJ4zI_6SGrA&s" alt="start location" />
-            </div>
-            <div>
-              <h3 className='text-xl font-semibold' >{rides.length > 0 && rides[0].pickup}</h3>
-            </div>
-          </div>
-          <div name="ridestartend" className='flex justify-start items-center mt-4'>
-            <div className='mr-8'>
-              <img className='h-12' src="https://e7.pngegg.com/pngimages/760/399/png-clipart-map-computer-icons-flat-design-location-logo-location-icon-photography-heart-thumbnail.png" alt="start location" />
-            </div>
-            <div>
-              <h3 className='text-xl font-semibold' >{rides.length > 0 && rides[0].destination}</h3>
-            </div>
-          </div>
-        </div>
+    <div className='h-screen bg-cover flex flex-col'>
+      {/* Header */}
+      <div className='flex justify-between bg-white items-center p-4 shadow-md'>
         <div>
-          <div>
-            <button onClick={handleAcceptRide} className='bg-green-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md'>Accept Ride</button>
-          </div>
-          <div>
-            <button onClick={handleDeclineRide} className='bg-red-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md'>Decline Ride</button>
-          </div>
+          <img className='h-12' src="https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png" alt="uber logo" />
         </div>
-      </div>}
-      {isAccepted && <div className='h-[50%] bg-white p-3'>
-        <h1 className='text-xl my-2 font-semibold capitalize'>Passenger Name: {acceptedRide && acceptedRide?.user?.fullname?.firstname}</h1>
-        <h1 className='text-xl my-2 font-semibold'>Pickup Point - {acceptedRide && acceptedRide?.ride?.pickup}</h1>
-        {rideStarted && <button className='bg-red-500 text-white text-2xl font-bold w-full p-3 mt-4 rounded-md' onClick={() => {
-          console.log('Ending Ride...');
-          socket.emit('end-ride', { rideId: acceptedRide.ride._id, captainId: captain._id, userSocketId: acceptedRide.user.socketId });
-          setRideStarted(false);
-          setIsAccepted(false);
-          setAcceptedRide(null);
-        }}>End Ride</button>}
-        {!rideStarted && <h1 className='text-lg font-semibold'>Enter OTP</h1>}
-        {!rideStarted && <div className='flex justify-center items-center'>
-          <input type="text"
-            className='border-2 border-gray-300 p-2 rounded-md w-28 mt-4'
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          /> <br />
-          <button onClick={() => {
-            console.log(acceptedRide.ride._id, otp, acceptedRide.user._id)
-            socket.emit('otp-verify', { rideId: acceptedRide.ride._id, otp, socketId: acceptedRide.user.socketId })
-          }} className='bg-black text-white px-10 py-1 mx-10 rounded-s-full rounded-e-full'>Submit</button>
-        </div>}
+        <div onClick={handleLogout} className='cursor-pointer'>
+          <FontAwesomeIcon className='text-2xl text-red-500 mb-1' icon={faArrowRightFromBracket} />
+          <h3 className='text-lg font-bold text-red-500'>Logout</h3>
+        </div>
       </div>
-      }
+
+      {/* Map Section */}
+      <div className='h-[60vh] w-full'>
+        {mapLoaded && captainLocation ? (
+          <MapContainer 
+            center={[captainLocation.lat, captainLocation.lng]} 
+            zoom={15} 
+            ref={mapRef}
+            style={{ height: "60vh", width: "100%" }}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+            />
+            
+            {/* Captain's current location */}
+            <Marker position={[captainLocation.lat, captainLocation.lng]} icon={captainIcon}>
+              <Popup>
+                <div className='text-center'>
+                  <strong>You are here</strong><br/>
+                  Captain: {captain?.fullname?.firstname}<br/>
+                  Status: {isAccepted ? 'On Trip' : 'Available'}
+                </div>
+              </Popup>
+            </Marker>
+            
+            {/* Show pickup location if ride is accepted */}
+            {acceptedRide && acceptedRide.pickupCoords && (
+              <Marker position={[acceptedRide.pickupCoords.lat, acceptedRide.pickupCoords.lng]} icon={userLocationIcon}>
+                <Popup>
+                  <div className='text-center'>
+                    <strong>Pickup Location</strong><br/>
+                    {acceptedRide.pickup}
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+            
+            {/* Show route to pickup location */}
+            {acceptedRide && acceptedRide.pickupCoords && captainLocation && (
+              <RoutingMachine 
+                start={{lat: captainLocation.lat, lng: captainLocation.lng}} 
+                end={{lat: acceptedRide.pickupCoords.lat, lng: acceptedRide.pickupCoords.lng}} 
+              />
+            )}
+          </MapContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full bg-gray-100">
+            <div className="text-center">
+              <ThreeDot variant="bounce" color="black" size="large" text="Loading map..." textColor="black" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Panel */}
+      <div className='flex-1 bg-white'>
+        {/* No rides and not accepted */}
+        {rides.length === 0 && !isAccepted && (
+          <div className='h-full bg-white p-5'>
+            <div className='flex justify-start gap-4 items-center mb-6'>
+              <div className='bg-gray-300 w-12 h-12 rounded-full flex justify-center items-center'>
+                <img className='h-10' src="https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png" alt="user" />
+              </div>
+              <div className='flex-1'>
+                <h1 className='text-lg font-bold'>Welcome {captain?.fullname?.firstname}</h1>
+                <p className='text-lg text-gray-500'>Captain</p>
+              </div>
+              <div>
+                <h1 className='text-2xl font-bold'>₹0</h1>
+                <p className='text-lg text-gray-500'>Earned</p>
+              </div>
+            </div>
+            
+            <div className='bg-[#f2f3f4] p-4 rounded-lg'>
+              <h3 className='text-3xl font-bold mb-4'>Earnings</h3>
+              <div className='flex gap-4 justify-between'>
+                <div>
+                  <h3 className='text-2xl font-semibold'>Today</h3>
+                  <p className='text-lg'>₹292.90</p>
+                </div>
+                <div>
+                  <h3 className='text-2xl font-semibold'>This Week</h3>
+                  <p className='text-lg'>₹292.90</p>
+                </div>
+                <div>
+                  <h3 className='text-2xl font-semibold'>Till Now</h3>
+                  <p className='text-lg'>₹292.90</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Ride requests */}
+        {rides.length > 0 && !isAccepted && (
+          <div className='h-full p-5'>
+            <h2 className='text-2xl font-bold mb-4'>New Ride Request</h2>
+            <div className='bg-gray-100 p-4 rounded-lg mb-4'>
+              <h3 className='text-lg font-semibold'>From: {rides[0].pickup}</h3>
+              <h3 className='text-lg font-semibold'>To: {rides[0].destination}</h3>
+              <h3 className='text-lg font-semibold'>Fare: ₹{rides[0].fare}</h3>
+              <h3 className='text-lg font-semibold'>Distance: {rides[0].distance || 'N/A'}</h3>
+            </div>
+            <div className='flex gap-4'>
+              <button onClick={handleAcceptRide} className='bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex-1'>
+                Accept Ride
+              </button>
+              <button onClick={handleDeclineRide} className='bg-red-500 text-white px-6 py-3 rounded-lg font-bold flex-1'>
+                Decline
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Accepted ride */}
+        {isAccepted && acceptedRide && (
+          <div className='h-full p-5'>
+            <h2 className='text-2xl font-bold mb-4'>
+              {rideStarted ? 'Ride in Progress' : 'Ride Accepted'}
+            </h2>
+            <div className='bg-gray-100 p-4 rounded-lg mb-4'>
+              <h3 className='text-lg font-semibold'>Passenger: {acceptedRide.user.fullname.firstname}</h3>
+              <h3 className='text-lg font-semibold'>From: {acceptedRide.pickup}</h3>
+              <h3 className='text-lg font-semibold'>To: {acceptedRide.destination}</h3>
+              <h3 className='text-lg font-semibold'>Fare: ₹{acceptedRide.fare}</h3>
+            </div>
+            
+            {!rideStarted && (
+              <div className='mb-4'>
+                <label className='block text-lg font-semibold mb-2'>Enter OTP:</label>
+                <input 
+                  type="text" 
+                  value={otp} 
+                  onChange={(e) => setOtp(e.target.value)}
+                  className='w-full p-3 border-2 border-gray-300 rounded-lg text-center text-2xl font-bold'
+                  placeholder="0000"
+                  maxLength="4"
+                />
+                <button onClick={handleVerifyOtp} className='w-full bg-blue-500 text-white py-3 rounded-lg font-bold mt-2'>
+                  Start Ride
+                </button>
+              </div>
+            )}
+            
+            {rideStarted && (
+              <button onClick={handleEndRide} className='w-full bg-red-500 text-white py-3 rounded-lg font-bold'>
+                End Ride
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

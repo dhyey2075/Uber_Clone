@@ -36,3 +36,8 @@ module.exports.getCaptainsInTheRadius = async (lat, lng, radius) => {
 
     return captains;
 }
+
+module.exports.getReverseGeocodeHelper = async (lat, long) => {
+    const res = await fetch(`https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${long}&language=English&api_key=${process.env.OLA_API_KEY}`)
+    return res;
+}
