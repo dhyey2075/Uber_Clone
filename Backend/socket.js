@@ -33,7 +33,7 @@ function initializeSocket(server) {
             const user = await userModel.findByIdAndUpdate(userId, { socketId: null });
         }
         else{
-            const driver = await captainModel.findByIdAndUpdate(userId, { socketId: null, status: 'inactive' });
+            const driver = await captainModel.findByIdAndUpdate(userId, { socketId: null, status: 'inactive', location: null });
         }
     })
 
@@ -44,14 +44,15 @@ function initializeSocket(server) {
             return socket.emit('error', {message: 'Invalid Location Data.'})
         }
 
-        console.log('Location Update', data.userSocketId);
 
-        io.to(userSocketId).emit('captain-location-update', { location });
+        if(userSocketId) io.to(userSocketId).emit('captain-location-update', { location });
 
         await captainModel.findByIdAndUpdate(captainId, { location: {
             lat: location.lat,
             lng: location.lng,
         } });
+
+        console.log('Captain Location Updated', { captainId, location });
     })
 
     socket.on('rideRequest', (data) => {
@@ -59,6 +60,7 @@ function initializeSocket(server) {
         console.log('Ride Request', data);
         data.ride.otp="";
         io.to(captainSocketId).emit('rideRequestToCaptain', { ride });
+        console.log("1 july", ride);
     })
 
     socket.on('rideAccepted', (data) => {
@@ -79,7 +81,7 @@ function initializeSocket(server) {
         }
         else{
             socket.emit('otp-verify-response', { message: 'Invalid OTP' });
-            io.to(userId).emit('otp-verify-response', { message: 'Invalid OTP' });
+            io.to(socketId).emit('otp-verify-response', { message: 'Invalid OTP' });
         }
     })
 

@@ -19,6 +19,7 @@ const CaptainHome = () => {
         socket.emit('addSocketIdToUserDb', { userId: captain._id, type: 'captain' })
       }
       const rideRequestHandler = (data) => {
+        console.log("1 July", data);
         rides.find(ride => ride._id === data.ride._id) ? console.log('Ride already exists') :
           setRides((rides) => [...rides, data.ride]);
       };
@@ -55,6 +56,13 @@ const CaptainHome = () => {
   }, [])
 
   useEffect(() => {
+    if (captain && socket) {
+      console.log('Emitting addSocketIdToUserDb');
+      socket.emit('addSocketIdToUserDb', { userId: captain._id, type: 'captain' });
+    }
+  }, [captain, socket])
+
+  useEffect(() => {
     const sendLocation = () => {
       console.log("Hello")
       if (navigator.geolocation) {
@@ -62,8 +70,9 @@ const CaptainHome = () => {
           const { latitude, longitude } = position.coords;
           console.log(latitude, longitude)
           console.log("Here",acceptedRide)
-          if(acceptedRide?.user.socketId) console.log(acceptedRide.user.socketId)
-          if(acceptedRide?.user.socketId) socket.emit('update-location-captain', { userId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
+          if(acceptedRide?.user.socketId) console.log("1 July", acceptedRide.user.socketId)
+          socket.emit('update-location-captain', { captainId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
+          console.log("Location sent to server", { captainId: captain._id, location: { lat: latitude, lng: longitude }, userSocketId: acceptedRide?.user?.socketId });
         });
       }
     };
