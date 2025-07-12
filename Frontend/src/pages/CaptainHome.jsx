@@ -7,6 +7,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, useMap, Popup } from "react-leaflet";
 import 'leaflet-routing-machine';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 const CaptainHome = () => {
   const [captain, setCaptain] = useState(null)
@@ -20,6 +22,7 @@ const CaptainHome = () => {
 
   const socket = useContext(SocketContext)
   const mapRef = useRef(null)
+  const navigator = useNavigate()
 
   // Captain's vehicle icon
   const captainIcon = L.icon({
@@ -257,6 +260,14 @@ useEffect(() => {
   
     return null;
   };
+
+  useEffect(() => {
+    const captain = localStorage.getItem('captain')
+    if(!captain) {
+      navigator("/")
+      toast.error("Please login first.")
+    }
+  })
 
   return (
     <div className='h-screen bg-cover flex flex-col'>

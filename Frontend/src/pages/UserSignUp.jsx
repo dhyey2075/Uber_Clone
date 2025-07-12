@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -47,6 +47,11 @@ const UserSignUp = () => {
         alert(data.errors[0].msg);
       }
     }
+    useEffect(() => {
+      if (user) {
+        navigator('/home');
+      }
+    }, [])
 
   return (
     <div className='flex flex-col justify-between h-screen'>

@@ -11,8 +11,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, useMap, Popup } from "react-leaflet";
 import 'leaflet-routing-machine';
-import { useNavigate } from 'react-router-dom';
 import { faLocationCrosshairs } from '@fortawesome/free-solid-svg-icons';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
   const [user, setUser] = useState(null)
@@ -45,6 +45,7 @@ const Home = () => {
   const acceptRideRef = useRef(null)
   const mapRef = useRef(null);
   const MapRef = useRef(null);
+  const navigator = useNavigate();
 
   const latitude = 0;
   const longitude = 0;
@@ -268,7 +269,8 @@ const Home = () => {
         pickup,
         destination,
         vehicleType,
-        user: user._id
+        user: user._id,
+        distance: fare.distance,
       })
     })
     const data = await response.json()
@@ -320,6 +322,13 @@ const Home = () => {
 
     return null;
   };
+
+  useEffect(() => {
+    const user = localStorage.getItem('user')
+    if(!user) {
+      navigator('/signin')
+    }
+  }, [])
 
 
   return (

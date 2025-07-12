@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -63,6 +63,13 @@ const CaptainSignUp = () => {
       alert(data.errors[0].msg);
     }
   }
+
+  useEffect(() => {
+        const captain = localStorage.getItem('captain')
+        if(captain) {
+          navigator("/captain-home")
+        }
+      }, [])
 
   return (
     <div className='flex flex-col justify-between h-screen'>
